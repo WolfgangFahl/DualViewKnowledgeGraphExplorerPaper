@@ -1,6 +1,6 @@
 #!/bin/bash
 # LaTeX PDF Generation Script
-# Usage: scripts/tex2pdf [--check | --install | --clean | --help]
+# Usage: scripts/tex2pdf [--build|--check | --install | --clean | --fonts | -h|--help]
 
 set -e           # Exit immediately if a command exits with a non-zero status
 set -o pipefail  # Return value of a pipeline is the value of the last (failed) command
@@ -9,6 +9,9 @@ set -o pipefail  # Return value of a pipeline is the value of the last (failed) 
 MAIN_FILE="main"
 # directory where the script runs
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# list of required fonts to check
+REQUIRED_FONTS=("DejaVu Sans" "DejaVu Serif")
 
 # Logic to source bash_messages
 if [ -f "$SCRIPT_DIR/bash_messages" ]; then
@@ -20,8 +23,18 @@ fi
 
 # show the usage of the script
 usage() {
-  echo "Usage: $0 [--build|--check | --install | --clean | -h|--help]"
-  exit 0
+  cat <<'EOF'
+Usage: scripts/tex2pdf [--build|--check|--install|--clean|--fonts|--font|-h|--help]
+
+Options:
+  --build            Build the PDF (default when no args are given)
+  --check            Check required tools and fonts
+  --install          Install TeX dependencies and base fonts
+  --fonts, --font    Install texlive-fonts-extra (additional fonts)
+  --clean            Remove build artifacts
+  -v, --version      Show version of texlive
+  -h, --help         Show this help
+EOF
 }
 
 # cleans aux and log files
@@ -30,7 +43,27 @@ clean_artifacts() {
     rm -f *.aux *.bbl *.blg *.log *.out *.toc *.lof *.lot *.xdv *.fls *.fdb_latexmk
 }
 
-# Checks for binaries and the specific font
+# Checks for required fonts
+check_required_fonts() {
+    local missing_font=0
+    action "Verifying Font Configuration..."
+    for font in "${REQUIRED_FONTS[@]}"; do
+        if fc-list | grep -qi "$font"; then
+            success "Font found: $font"
+        else
+            warn "Font not found: $font"
+            missing_font=1
+        fi
+    done
+
+    if [ $missing_font -eq 1 ]; then
+        warn "Some required fonts are missing."
+        return 1
+    fi
+    return 0
+}
+
+# Checks for binaries and required fonts
 check_dependencies() {
     local missing=0
     action "Checking system requirements..."
@@ -45,32 +78,21 @@ check_dependencies() {
         fi
     done
 
-    # Check Font
-    action "Verifying Font Configuration..."
-
-    # We use -i for case insensitive and search strictly for "dejavu"
-    if fc-list | grep -qi "dejavu"; then
-        success "Font found: DejaVu"
-    else
-        warn "Font 'DejaVu' not found via standard check."
-        warn "Debug Info:"
-        warn "  Which fc-list: $(which fc-list)"
-        warn "  Font output sample: $(fc-list | head -n 3)"
-
-        error "Font: DejaVu Sans (Required)" 0
+    # Check Fonts
+    if ! check_required_fonts; then
         missing=1
     fi
 
     if [ $missing -eq 1 ]; then
         echo ""
-        warn "Dependencies missing. Run 'scripts/tex2pdf --install' to fix."
+        warn "Dependencies missing. Run 'scripts/tex2pdf --install' (and/or --fonts) to fix."
         return 1
     fi
     success "All dependencies met."
     return 0
 }
 
-# Installs texlive and the specific fonts
+# Installs texlive and base fonts
 install_dependencies() {
     action "Installing dependencies..."
 
@@ -78,12 +100,9 @@ install_dependencies() {
         # macOS installation
         if command -v port &> /dev/null; then
             action "Detected MacPorts. Installing TeXLive and Fonts..."
-
-            # Use sudo to install packages
-            sudo port -N install texlive-xetex texlive-latex-extra texlive-fonts-recommended dejavu-fonts fontconfig
+            sudo port -N install texlive-xetex texlive-latex-extra dejavu-fonts fontconfig
 
             # --- MACPORTS FONT CONFIGURATION ---
-            # 1. Create local config to point to standard MacPorts font path
             if [ -d "/opt/local/share/fonts" ]; then
                 action "Configuring ~/.config/fontconfig/fonts.conf..."
                 mkdir -p ~/.config/fontconfig
@@ -97,14 +116,12 @@ install_dependencies() {
 EOF
             fi
 
-            # 2. Force cache rebuild
             action "Rebuilding font cache (this may take a moment)..."
             if [ -x "/opt/local/bin/fc-cache" ]; then
                 /opt/local/bin/fc-cache -f -v
             else
                 fc-cache -f -v
             fi
-
         elif command -v brew &> /dev/null; then
             action "Detected Homebrew..."
             brew install --cask mactex-no-gui font-dejavu
@@ -121,6 +138,34 @@ EOF
     fi
 
     success "Installation complete. Run 'scripts/tex2pdf --check' to verify."
+}
+
+# Installs extra TeX fonts and utilities
+install_fonts_extra() {
+    action "Installing TeX Live extra fonts (texlive-fonts-extra)... and fontutils"
+
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        if command -v port &> /dev/null; then
+            sudo port -N install texlive-fonts-extra texlive-fontutils
+            # tlmgr?
+        elif command -v brew &> /dev/null; then
+            # macOS MacTeX already bundles fonts; ensure tlmgr is updated
+            action "Homebrew detected. texlive-fonts-extra is bundled with MacTeX."
+            brew install --cask mactex-no-gui
+            sudo tlmgr update --self --all
+        else
+            error "No package manager found (MacPorts/Homebrew). Install manually."
+            return 1
+        fi
+    else
+        # Linux (Debian/Ubuntu)
+        sudo apt-get update
+        sudo apt-get install -y texlive-fonts-extra
+        # albatross?
+    fi
+
+    fc-cache -f -v || true
+    success "Extra fonts installed."
 }
 
 # the core functionality
@@ -181,6 +226,10 @@ while [[ $# -gt 0 ]]; do
             install_dependencies
             exit $?
             ;;
+        --fonts|--font)
+            install_fonts_extra
+            exit $?
+            ;;
         --clean)
             clean_artifacts
             exit 0
@@ -188,6 +237,9 @@ while [[ $# -gt 0 ]]; do
         -h|--help)
             usage
             ;;
+        -v|--version)
+           tlmgr --version
+           ;;
         *)
             error "Unknown argument: $1"
             ;;
