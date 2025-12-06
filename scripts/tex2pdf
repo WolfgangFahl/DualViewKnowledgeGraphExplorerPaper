@@ -1,0 +1,171 @@
+#!/bin/bash
+# LaTeX PDF Generation Script
+# Usage: ./build.sh [--check | --install | --clean | --help]
+
+set -e           # Exit immediately if a command exits with a non-zero status
+set -o pipefail  # Return value of a pipeline is the value of the last (failed) command
+
+# Configuration
+MAIN_FILE="main" # name without extension
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+# --- Helper Functions ---
+
+log() {
+    echo -e "${2:-$NC}$1${NC}"
+}
+
+usage() {
+    echo "Usage: $0 [options]"
+    echo "Options:"
+    echo "  --check    Check if required tools and fonts are installed"
+    echo "  --install  Install missing dependencies (MacPorts or Apt)"
+    echo "  --clean    Remove temporary build files"
+    echo "  --help     Show this help message"
+    exit 0
+}
+
+# cleans aux and log files
+clean_artifacts() {
+    log "Cleaning build artifacts..." "$YELLOW"
+    rm -f *.aux *.bbl *.blg *.log *.out *.toc *.lof *.lot *.xdv *.fls *.fdb_latexmk
+}
+
+# Checks for binaries and the specific font causing your errors
+check_dependencies() {
+    local missing=0
+    log "Checking system requirements..." "$YELLOW"
+
+    # Check binaries
+    for tool in xelatex bibtex; do
+        if command -v "$tool" &> /dev/null; then
+            echo "  [OK] $tool"
+        else
+            echo -e "  [${RED}MISSING${NC}] $tool"
+            missing=1
+        fi
+    done
+
+    # Check specific font required by your log (DejaVuSans)
+    if fc-list | grep -qi "DejaVuSans"; then
+        echo "  [OK] Font: DejaVu Sans"
+    else
+        echo -e "  [${RED}MISSING${NC}] Font: DejaVu Sans (Required for compilation)"
+        missing=1
+    fi
+
+    if [ $missing -eq 1 ]; then
+        log "Some dependencies are missing. Run '$0 --install' to fix." "$RED"
+        return 1
+    fi
+    log "All dependencies met." "$GREEN"
+    return 0
+}
+
+# Installs texlive and the specific fonts missing in your log
+install_dependencies() {
+    log "Installing dependencies..." "$YELLOW"
+
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # macOS installation
+        if command -v port &> /dev/null; then
+            log "Detected MacPorts..."
+            # Installing texlive AND the missing font package
+            sudo port selfupdate
+            sudo port install texlive-xetex texlive-latex-extra texlive-fonts-recommended dejavu-fonts
+
+            # Refresh font cache so xelatex sees the new font
+            log "Refreshing font cache..."
+            fc-cache -f -v
+        elif command -v brew &> /dev/null; then
+            log "Detected Homebrew..."
+            brew install --cask mactex-no-gui font-dejavu
+            brew install texlive
+        else
+            log "No package manager found (MacPorts/Homebrew). Install manually." "$RED"
+            exit 1
+        fi
+    else
+        # Linux (Debian/Ubuntu)
+        log "Detected Linux (apt)..."
+        sudo apt-get update
+        # 'fonts-dejavu' fixes the fontspec error
+        sudo apt-get install -y texlive-xetex texlive-latex-extra fonts-dejavu fonts-dejavu-extra
+    fi
+
+    log "Installation complete." "$GREEN"
+}
+
+build_pdf() {
+    if [ ! -f "${MAIN_FILE}.tex" ]; then
+        log "Error: ${MAIN_FILE}.tex not found." "$RED"
+        exit 1
+    fi
+
+    # Clean before building to ensure fresh state
+    clean_artifacts
+
+    log "Building ${MAIN_FILE}..." "$GREEN"
+
+    # 1. First Pass (generate aux)
+    log ">> XeLaTeX Pass 1..."
+    xelatex -interaction=nonstopmode "${MAIN_FILE}.tex"
+
+    # 2. Bibtex (if bib file exists)
+    if [ -f references.bib ] || [ -f "${MAIN_FILE}.bib" ]; then
+        log ">> BibTeX..."
+        bibtex "${MAIN_FILE}"
+    fi
+
+    # 3. Second Pass (link citations)
+    log ">> XeLaTeX Pass 2..."
+    xelatex -interaction=nonstopmode "${MAIN_FILE}.tex" > /dev/null
+
+    # 4. Final Pass (resolve references/toc)
+    log ">> XeLaTeX Pass 3 (Final)..."
+    xelatex -interaction=nonstopmode "${MAIN_FILE}.tex" > /dev/null
+
+    if [ -f "${MAIN_FILE}.pdf" ]; then
+        log "✓ Build successful: ${MAIN_FILE}.pdf" "$GREEN"
+    else
+        log "✗ Build failed. Check ${MAIN_FILE}.log" "$RED"
+        exit 1
+    fi
+}
+
+# --- Main Argument Parsing ---
+
+# If no arguments provided, default to build
+if [ $# -eq 0 ]; then
+    check_dependencies
+    build_pdf
+    exit 0
+fi
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --check)
+            check_dependencies
+            exit $?
+            ;;
+        --install)
+            install_dependencies
+            exit $?
+            ;;
+        --clean)
+            clean_artifacts
+            exit 0
+            ;;
+        -h|--help)
+            usage
+            ;;
+        *)
+            log "Unknown argument: $1" "$RED"
+            usage
+            ;;
+    esac
+    shift
+done
