@@ -1,20 +1,134 @@
-\documentclass{article}
-\usepackage{graphicx} % Required for inserting images
+%% Dual View Knowledge Graph Explorer Paper
+%% see https://github.com/WolfgangFahl/DualViewKnowledgeGraphExplorerPaper
+\documentclass[runningheads]{llncs}
+\input{common.tex}
+\bibliographystyle{splncs04}
 
-\title{DualViewKnowledgeGraphExplorer}
-\author{wf }
+\title{Dual View Knowledge Graph Explorer}
+\author{
+     {Wolfgang Fahl}\inst{1}\orcidID{0000-0002-0821-6995}
+}
+\institute{
+{BITPlan GmbH, Willich, Germany}
+}
+
 \date{December 2025}
 
 \begin{document}
 
 \maketitle
+\begin{abstract}
+Exploring Knowledge Graphs with Graph Walks by following edges from a start node of interest is
+a natural approach. Unfortunately there are often frustrating obstacles. Users might not find what they look
+for or a step in the walk is cumbersome or not possible. Links might haven rotten, information may be outdated or incomplete. For the Semantification of Usecases Graph Walks are a valuable source for gathering requirements in a \tquote{Specification by Example} style.
 
+This work introduces a Dual View Knowledge Graph Explorer. It is a software written in python with a demo as a Jupyter notebook.
+\end{abstract}
+\keywords{Knowledge Graph \and Graph Walk}
+\\
+\noindent
+\textbf{License}: Apache 2.0
+\\
+\textbf{URL}: https://github.com/WolfgangFahl/DualViewKnowledgeGraphExplorer
 \section{Introduction}
+User friendly exploring of knowledge graphs is a core selling point of the Semantic Web. There are plenty of cool presentations showing off what a knowledge graph might look like. Unfortunately this state of affairs is usually the result of hard work and the effort of a larger community. Wikidata \cite{Vrandecic2014} and OpenStreetMap \cite{Haklay2008} are examples of a projects that managed to have a hight impact and visibility.
 \section{Background}
+The  \wdq{Wikidata Walkabout}{Q99677798} won the Coolest Tool Award 2024. Starting from a class such as City users can select an instance of their choice e.g. \wdq{London}{Q84} and end up at the corresponding Wikidata page. The shortcomings of this approach have motivated this work. Users might get frustrated when they end up in a presentation style that is technology focused. They might not be familiar with the properties being used an not be able to continue their explortion as intended.
 \section{Dual View Knowledge Graph explorer}
+The idea behind the Dual View Knowledge Graph explorer is to present  views of a graph walk side by side. One view shows the Knowledge Graph representation of the current node and one the \tquote{natural} view. A common pair is a Wikidata Q-Item shown side by side with the official website of the item.
+
+The prototype of the explorer is implemented as a jupyter notebook.
+It uses a YAML File declaring
+\begin{itemize}
+    \item entity types
+    \item node types
+    \item entities
+    \item nodes
+    \item a walk with steps
+\end{itemize}
+
+in a straightforward way. The python code to render the YAML content in dual view style was generated using Claude Sonnet 4.6 with some manual fixes necessary.
+
+\subsection{SEEK Commons Query Objects Use Case}
+The approach was first tried out at a \wdq{SEEKCommons}{Q118147033} Workshop in November 2025. The Graph Walk to be shown was quickly generated with a set of LLM Tools (GPT-5, Grok4, Gemini3, Claude Sonnet 4.6) accessed via OpenRouter to create a yaml file describing the walk see Listing ~\ref{lst:navigation_steps.yaml}
+\begin{lstlisting}[language=yaml, caption={YAML description of the SEEK Commons Graph Walk}, label={lst:navigation_steps.yaml}]
+# Dual-View Knowledge Graph Explorer - Navigation Steps
+# Author: Wolfgang Fahl / bitplan.com
+# 2025-11-16 for SeekCommons Workshop
+
+node_types:
+  organization:
+    label: "Organization"
+    wikidata_id: "Q43229"
+    icon: ""
+...
+
+edge_types:
+  funded_by:
+    label: "funded by"
+    wikidata_id: "P8324"
+    icon: ""
+...
+nodes:
+  seekcommons:
+    label: "SeekCommons"
+    type: project
+    wikidata_id: "Q118147033"
+    web_url: "https://seekcommons.org/"
+
+...
+
+edges:
+  seekcommons_funded_by_nsf:
+    from: seekcommons
+    to: nsf_grant
+    type: funded_by
+
+
+walks:
+  seekcommons_grant_walk:
+    label: "SeekCommons Grant Exploration"
+    start_node: seekcommons
+    sequence:
+      - edge: seekcommons_funded_by_nsf
+      - edge: nsf_operated_by_nd
+      - edge: nsf_has_pi_luis
+      - edge: luis_employed_by_nd
+\end{lstlisting}
+This walk is a typical \tquote{Happy Path} walk. 
+Figure~\ref{fig:graphwalk-seekcommons-step1} shows the starting node of the walk displayed as a side by side view by the \texttt{run kgwebwalker.py} jupyter cell command.
+
+\begin{figure}[t]
+    \centering
+     \includegraphics[width=\linewidth]{images/GraphWalkSEEKComonsScreenShotStep1.jpg}
+    \caption{Step 1 of the sample graph walk}
+    \label{fig:graphwalk-seekcommons-step1}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \begin{minipage}{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/GraphWalkSEEKComonsScreenShotStep3.jpg}
+        \caption{Step 3 of the walk}
+        \label{fig:step3}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.48\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{images/GraphWalkSEEKComonsScreenShotStep4.jpg}
+        \caption{Step 4 of the walk}
+        \label{fig:step4}
+    \end{minipage}
+    \caption{Further progression in the SEEK Commons Graph Walk}
+    \label{fig:graphwalk-seekcommons-steps34}
+\end{figure}
 \section{Evaluation}
+The Feedback by the SEEKCommons workshop participants was encouraging. It seems feasible to deduct Query Objects from given Knowledge Graphs and discuss the parameterization based on the specification by example walks.
 \section{Discussion}
+This paper presents a Jupyter notebook prototype which seems to be just
+the tip of an iceberg. There is huge potential in this approach since the properties of nodes are not explicitly discussed. The implicitness of the approach is what seems fitting for modern applications. E.g. if you reference a person the persistent identifier is enough to find the persons details as a knowledge graph node and the entry which might be a webpage or a record in a database. There is no need to discuss the details of the webpage or the record - these are readily available for inspection by humans and computers.
 \section{Future Work}
-
-
+A Browser extension that allows to track the intentions of a user by tracing relevant user interface events such as link clicks and entering of data into input elements would be useful. For finding out the intents of a user their could be an interactive dialog asking questions about the role, background and needs. There might also be an option to let the user point to areas of interest on the screen. The Research question would be how state of the art LLM support would allow to navigate existing knowledge graph nodes in parallel and ideally suggest additions essentially leading to a full-fledge knowlede graph curation support tool.
+\bibliography{references.bib}
 \end{document}
