@@ -1,59 +1,53 @@
 %% common LaTeX set up
-%% WF 2025-12-06
+%% WF 2025-12-06 (revised for pdfLaTeX/LNCS with UTF-8 workarounds)
 
-% multicolumn support
+% UTF-8 input and font encoding
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}  % Standard encoding for better character support
+
+% Standard LNCS fonts
+\usepackage{mathptmx}  % Times-like for math/text
+\usepackage{helvet}    % Helvetica for sans-serif
+\usepackage{courier}   % Courier for monospace (limited UTF-8, hence workarounds below)
+
+% Multicolumn support
 \usepackage{multicol}
 
-% font handling for XeLaTeX (use DejaVu from texlive-fonts-extra)
-\usepackage{fontspec}
-\setmainfont{DejaVu Serif}
-\setsansfont{DejaVu Sans}
-\setmonofont{DejaVu Sans Mono}
-
-% linenumbers
+% Linenumbers (if needed; comment out otherwise)
 \usepackage{lineno}
 
-% utf8 encoding (not needed with XeLaTeX, so removed inputenc)
-
-%% make references clickable
+% Make references clickable (load late to avoid conflicts)
 \usepackage{hyperref}
 
-% allow verbatim code
-\usepackage{verbatim}
+% Source code rendering (listings for simplicity)
+\usepackage{listings}
+\usepackage{xcolor}  % For listings colors
 
-% source code rendering
-\usepackage{minted}
-
-\usepackage{graphicx} % Required for inserting images
-
-% render SVG files
+% Graphics and SVG (if needed; SVG requires inkscape or similar with --shell-escape)
+\usepackage{graphicx}
 \usepackage{svg}
 
-%% orcidID
+%% Custom Commands
+% ORCID ID
 \renewcommand{\orcidID}[1]{\href{https://orcid.org/#1}{\includegraphics[width=8pt]{images/orcid.png}}}
 \newcommand\wf{{Wolfgang Fahl \orcidID{0000-0002-0821-6995}}}
 
-%% footnotelink
+% Footnotelink
 \newcommand{\footnotelink}[2]{\href{#1}{#2}\footnote{#1}}
+\newcommand{\footnotelonglink}[2]{#2\footnote{\url{#1}}}
 
-% typographical quoting
+% Typographical quoting
 \newcommand{\tquote}[1]{``#1''}
 
 % Wikidata references
 \newcommand{\wdq}[2]{\footnotelink{https://www.wikidata.org/wiki/#2}{#1 (#2)}}
 \newcommand{\wdp}[2]{\footnotelink{https://www.wikidata.org/wiki/Property:#2}{#1 (#2)}}
 
-% in document referencing
+% In-document referencing
 \newcommand{\seeref}[1]{(see Section~\ref{#1})}
-
-% footnotelink
-\newcommand{\footnotelonglink}[2]{#2\footnote{\url{#1}}}
-
-% full reference
 \newcommand{\fullref}[1]{\ref{#1}.~\nameref{#1}}
 
-% listings with different languages
-\usepackage{listings}
+% Listings setup with UTF-8 workarounds (replace unsupported chars like emojis)
 \lstset{
   basicstyle=\footnotesize\ttfamily,
   breaklines=true,
@@ -63,8 +57,11 @@
   keywordstyle=\color{blue},
   commentstyle=\color{green},
   stringstyle=\color{red},
+  extendedchars=true,  % Basic UTF-8 support
+  literate={🏢}{{[office]}}1  % Workaround: Replace emoji with text (add more as needed, e.g., {😊}{{[smile]}}1)
 }
 
+% YAML language definition for listings
 \lstdefinelanguage{yaml}{
   keywords={true,false,null,y,n},
   keywordstyle=\color{blue}\bfseries,
@@ -79,3 +76,8 @@
   morestring=[b]',
   morestring=[b]"
 }
+
+% Example usage in your main.tex:
+% \begin{lstlisting}[language=yaml]
+% key: value 🏢  % This will render as "key: value [office]"
+% \end{lstlisting}
