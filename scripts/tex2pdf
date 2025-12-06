@@ -5,35 +5,24 @@
 set -e           # Exit immediately if a command exits with a non-zero status
 set -o pipefail  # Return value of a pipeline is the value of the last (failed) command
 
-# --- 1. Path Fix for MacPorts (The "Hidden" Issue) ---
-# Ensure we use MacPorts binaries (fc-list, xelatex) if they exist,
-# rather than system defaults which might not see the new fonts.
-if [ -d "/opt/local/bin" ]; then
-    export PATH="/opt/local/bin:$PATH"
-fi
-
-# --- 2. Configuration & bash_messages Integration ---
+# name of the main tex file
 MAIN_FILE="main"
+# directory where the script runs
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Logic to source bash_messages if available, else define fallbacks
+# Logic to source bash_messages
 if [ -f "$SCRIPT_DIR/bash_messages" ]; then
     source "$SCRIPT_DIR/bash_messages"
 else
-    # Fallback colors if bash_messages is missing
-    RED='\033[0;31m'
-    GREEN='\033[0;32m'
-    YELLOW='\033[1;33m'
-    BLUE='\033[0;34m'
-    NC='\033[0m'
-
-    error() { echo -e "${RED}✗ Error: $1${NC}"; [ "${2:-1}" -ne 0 ] && exit ${2:-1}; }
-    success() { echo -e "${GREEN}✓ $1${NC}"; }
-    warn() { echo -e "${YELLOW}⚠ $1${NC}"; }
-    action() { echo -e "${BLUE}➜ $1${NC}"; }
+  echo "bash_messages missing"
+  exit 1
 fi
 
-# --- 3. Helper Functions ---
+# show the usage of the script
+usage() {
+  echo "Usage: $0 [--build|--check | --install | --clean | -h|--help]"
+  exit 0
+}
 
 # cleans aux and log files
 clean_artifacts() {
@@ -134,6 +123,7 @@ EOF
     success "Installation complete. Run 'scripts/tex2pdf --check' to verify."
 }
 
+# the core functionality
 build_pdf() {
     if [ ! -f "${MAIN_FILE}.tex" ]; then
         error "${MAIN_FILE}.tex not found."
@@ -169,16 +159,20 @@ build_pdf() {
     fi
 }
 
-# --- Main Argument Parsing ---
+# Command Line argument handling
 
+# if no arguments then try building the pdf file
 if [ $# -eq 0 ]; then
-    check_dependencies
     build_pdf
     exit 0
 fi
 
+# if arguments are available
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        --build)
+           build_pdf
+           ;;
         --check)
             check_dependencies
             exit $?
@@ -192,8 +186,7 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         -h|--help)
-            echo "Usage: $0 [--check | --install | --clean | --help]"
-            exit 0
+            usage
             ;;
         *)
             error "Unknown argument: $1"
