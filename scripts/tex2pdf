@@ -205,30 +205,35 @@ build_pdf() {
 
 # github action
 # check timestamps, build if needed, and git add
+# github action
+# check timestamps, build if needed, and auto-commit
 github_action() {
-    echo "GitHub action: Checking if pdf rebuild is needed..."
+    OUTPUT_PDF="${MAIN_FILE}.pdf"
+    action "GitHub action: Checking if $OUTPUT_PDF rebuild is needed..."
 
-    # Find the newest source file timestamp (expand as needed, e.g., add -o -name '*.png')
-    NEWEST_SOURCE=$(find . -name '*.tex' -o -name '*.bib' -exec stat -c %Y {} + | sort -n | tail -1 || echo 0)
-    # Get main.pdf timestamp (0 if it doesn't exist)
-    PDF_TIMESTAMP=$(stat -c %Y "$OUTPUT_PDF" 2>/dev/null || echo 0)
 
-    if [ "$NEWEST_SOURCE" -gt "$PDF_TIMESTAMP" ] || [ ! -f "$OUTPUT_PDF" ]; then
-        echo "Rebuild needed: Sources are newer than PDF or PDF missing."
-        build_pdf
+    # Simple check: if PDF doesn't exist OR any tex/bib file is newer than PDF
+    if [ ! -f "$OUTPUT_PDF" ] || \
+       find . -name '*.tex' -o -name '*.bib' -newer "$OUTPUT_PDF" 2>/dev/null | grep -q .; then
+        echo "Rebuild needed."
 
-        # After build, check if the PDF actually changed (using git diff for robustness)
-        if git diff --quiet "$OUTPUT_PDF"; then
-            echo "No changes to $OUTPUT_PDF after build, skipping git add."
+        # Build and check if successful
+        if build_pdf; then
+            if [ -f "$OUTPUT_PDF" ]; then
+                success "Build successful, auto-committing changes..."
+                git commit -a -m "build: auto-update PDF [skip ci]" || echo "No changes to commit"
+            else
+                error "Build claimed success but $OUTPUT_PDF not found"
+                return 1
+            fi
         else
-            echo "Changes detected in $OUTPUT_PDF, staging with git add."
-            git add "$OUTPUT_PDF"
+            error "Build failed"
+            return 1
         fi
     else
-        echo "No rebuild needed: PDF is up-to-date."
+        success "No rebuild needed: PDF is up-to-date."
     fi
 }
-
 
 # Command Line argument handling
 
