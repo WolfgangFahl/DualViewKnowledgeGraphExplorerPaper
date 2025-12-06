@@ -213,9 +213,8 @@ github_action() {
 
 
     # Simple check: if PDF doesn't exist OR any tex/bib file is newer than PDF
-    if [ ! -f "$OUTPUT_PDF" ] || \
-       find . -name '*.tex' -o -name '*.bib' -newer "$OUTPUT_PDF" 2>/dev/null | grep -q .; then
-        echo "Rebuild needed."
+    if [ ! -f "$OUTPUT_PDF" ] || find . \( -name '*.tex' -o -name '*.bib' \) -newer "$OUTPUT_PDF" | grep -q .; then
+        warn "Rebuild needed."
 
         # Build and check if successful
         if build_pdf; then
