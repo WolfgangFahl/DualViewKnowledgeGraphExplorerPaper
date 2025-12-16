@@ -204,33 +204,30 @@ build_pdf() {
 }
 
 # github action
-# check timestamps, build if needed, and git add
-# github action
-# check timestamps, build if needed, and auto-commit
+# rebuild and check in
 github_action() {
     OUTPUT_PDF="${MAIN_FILE}.pdf"
-    action "GitHub action: Checking if $OUTPUT_PDF rebuild is needed..."
+    action "GitHub action: Building PDF..."
 
-
-    # Simple check: if PDF doesn't exist OR any tex/bib file is newer than PDF
-    if [ ! -f "$OUTPUT_PDF" ] || find . \( -name '*.tex' -o -name '*.bib' \) -newer "$OUTPUT_PDF" | grep -q .; then
-        warn "Rebuild needed."
-
-        # Build and check if successful
-        if build_pdf; then
-            if [ -f "$OUTPUT_PDF" ]; then
-                success "Build successful, auto-committing changes..."
-                git commit -a -m "build: auto-update PDF [skip ci]" || echo "No changes to commit"
-            else
-                error "Build claimed success but $OUTPUT_PDF not found"
-                return 1
-            fi
-        else
-            error "Build failed"
+    # Always build in CI (timestamps don't work in Git)
+    if build_pdf; then
+        if [ ! -f "$OUTPUT_PDF" ]; then
+            error "Build claimed success but $OUTPUT_PDF not found"
             return 1
         fi
+
+        success "Build successful, checking for changes..."
+        git add "$OUTPUT_PDF"
+
+        if git diff --cached --quiet "$OUTPUT_PDF"; then
+            success "PDF unchanged, nothing to commit."
+        else
+            success "PDF changed, committing..."
+            git commit -m "build: auto-update PDF [skip ci]"
+        fi
     else
-        success "No rebuild needed: PDF is up-to-date."
+        error "Build failed"
+        return 1
     fi
 }
 
