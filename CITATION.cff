@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this paper, please cite it as below."
+title: "Dual View Knowledge Graph Explorer"
+authors:
+  - family-names: Fahl
+    given-names: Wolfgang
+    orcid: "https://orcid.org/0000-0002-0821-6995"
+    affiliation: "BITPlan GmbH, Willich, Germany"
+abstract: >-
+  Exploring knowledge graphs with Graph Walks by following edges from a starting
+  node of interest is a natural approach for domain experts. This work introduces
+  a Dual View Knowledge Graph Explorer, a software application written in Python
+  with a Jupyter Notebook demo.
+keywords:
+  - "Knowledge Graphs"
+  - "Graph Walks"
+  - "Semantic Web"
+  - "Wikidata"
+  - "Jupyter Notebook"
+license: Apache-2.0
+url: "https://github.com/WolfgangFahl/DualViewKnowledgeGraphExplorerPaper"
+repository-code: "https://github.com/WolfgangFahl/DualViewKnowledgeGraphExplorer"
+date-released: "2025-12-01"
+type: software
